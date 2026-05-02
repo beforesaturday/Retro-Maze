@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Retro Maze - Mobile</title>
+    <title>Retro Maze - Neon Mobile</title>
     <style>
         :root {
             --neon-blue: #00ffff;
@@ -21,15 +21,18 @@
             margin: 0;
             padding: 0;
             height: 100vh;
-            touch-action: manipulation; /* Evita zoom accidental */
+            touch-action: manipulation;
         }
 
-        h1 { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); margin: 10px 0; }
+        h1 { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); margin: 15px 0; }
 
         #menu, #victory {
             text-align: center;
             padding: 20px;
             width: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .btn {
@@ -44,14 +47,31 @@
             border-radius: 5px;
             width: 80%;
             max-width: 250px;
+            text-transform: uppercase;
+        }
+
+        /* Botón Salir durante partida */
+        #exit-btn {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 20, 147, 0.2);
+            border: 2px solid var(--neon-pink);
+            color: var(--neon-pink);
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            z-index: 10;
         }
 
         canvas {
             border: 2px solid var(--neon-blue);
             max-width: 95vw;
-            max-height: 50vh;
+            max-height: 45vh;
             display: none;
             background: #000;
+            margin-top: 40px; /* Espacio para el botón salir */
         }
 
         /* Controles Táctiles */
@@ -60,14 +80,14 @@
             grid-template-columns: repeat(3, 70px);
             grid-template-rows: repeat(2, 70px);
             gap: 10px;
-            margin-top: 20px;
+            margin-top: 15px;
             justify-content: center;
         }
 
         .control-btn {
             width: 70px;
             height: 70px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
             border: 2px solid var(--neon-blue);
             color: var(--neon-blue);
             font-size: 24px;
@@ -84,23 +104,26 @@
         .down { grid-column: 2; grid-row: 2; }
         .right { grid-column: 3; grid-row: 2; }
 
-        #history { color: var(--neon-green); font-size: 0.8rem; margin-top: 10px; }
+        #history { color: var(--neon-green); font-size: 0.8rem; margin-top: 15px; text-align: center; }
     </style>
 </head>
 <body>
 
+    <!-- Botón Salir -->
+    <button id="exit-btn" onclick="showMenu()">SALIR ✕</button>
+
     <div id="menu">
         <h1>Retro Maze</h1>
-        <button class="btn" onclick="startGame(13)">MODO FÁCIL</button>
-        <button class="btn" onclick="startGame(21)">MODO MEDIO</button>
-        <button class="btn" onclick="startGame(31)">MODO DIFÍCIL</button>
+        <button class="btn" onclick="startGame(13)">FÁCIL</button>
+        <button class="btn" onclick="startGame(21)">MEDIO</button>
+        <button class="btn" onclick="startGame(31)">DIFÍCIL</button>
         <div id="history"></div>
     </div>
 
     <div id="victory" style="display:none;">
         <h1>¡VICTORIA!</h1>
         <p id="final-time"></p>
-        <button class="btn" onclick="showMenu()">REINTENTAR</button>
+        <button class="btn" onclick="showMenu()">MENU PRINCIPAL</button>
     </div>
 
     <canvas id="gameCanvas" width="600" height="600"></canvas>
@@ -116,9 +139,12 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const controls = document.getElementById('controls');
+        const exitBtn = document.getElementById('exit-btn');
+        const menuDiv = document.getElementById('menu');
+        const victoryDiv = document.getElementById('victory');
         
         let maze = [], player = {x: 1, y: 1}, goal = {x: 0, y: 0};
-        let gameActive = false, currentSize, cellSize, startTime;
+        let gameActive = false, currentSize, cellSize, startTime, animationId;
 
         function generateMaze(size) {
             let m = Array(size).fill().map(() => Array(size).fill(1));
@@ -143,10 +169,11 @@
             goal = {x: size - 2, y: size - 2};
             maze[goal.y][goal.x] = 0;
             
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('victory').style.display = 'none';
+            menuDiv.style.display = 'none';
+            victoryDiv.style.display = 'none';
             canvas.style.display = 'block';
             controls.style.display = 'grid';
+            exitBtn.style.display = 'block';
             
             startTime = Date.now();
             gameActive = true;
@@ -182,22 +209,18 @@
             ctx.fillStyle = "#ff1493"; // Jugador
             ctx.fillRect(player.x * cellSize + 2, player.y * cellSize + 2, cellSize - 4, cellSize - 4);
 
-            requestAnimationFrame(draw);
+            animationId = requestAnimationFrame(draw);
         }
-
-        window.addEventListener('keydown', e => {
-            if (e.key === "ArrowUp") move(0, -1);
-            if (e.key === "ArrowDown") move(0, 1);
-            if (e.key === "ArrowLeft") move(-1, 0);
-            if (e.key === "ArrowRight") move(1, 0);
-        });
 
         function win() {
             gameActive = false;
+            cancelAnimationFrame(animationId);
             let time = Math.floor((Date.now() - startTime) / 1000);
+            
             canvas.style.display = 'none';
             controls.style.display = 'none';
-            document.getElementById('victory').style.display = 'block';
+            exitBtn.style.display = 'none';
+            victoryDiv.style.display = 'flex';
             document.getElementById('final-time').innerText = `TIEMPO: ${time}s`;
             saveRecord(time);
         }
@@ -209,16 +232,33 @@
         }
 
         function showMenu() {
-            document.getElementById('victory').style.display = 'none';
-            document.getElementById('menu').style.display = 'block';
+            gameActive = false;
+            cancelAnimationFrame(animationId);
+            canvas.style.display = 'none';
+            controls.style.display = 'none';
+            exitBtn.style.display = 'none';
+            victoryDiv.style.display = 'none';
+            menuDiv.style.display = 'flex';
             loadHistory();
         }
 
         function loadHistory() {
             let history = JSON.parse(localStorage.getItem('mazeHistory') || '[]');
-            document.getElementById('history').innerHTML = "Últimos récords:<br>" + 
+            if (history.length === 0) {
+                document.getElementById('history').innerHTML = "Sin partidas previas";
+                return;
+            }
+            document.getElementById('history').innerHTML = "RÉCORDS:<br>" + 
                 history.reverse().map(r => `${r.date}: ${r.time}s`).join('<br>');
         }
+
+        window.addEventListener('keydown', e => {
+            if (e.key === "ArrowUp") move(0, -1);
+            if (e.key === "ArrowDown") move(0, 1);
+            if (e.key === "ArrowLeft") move(-1, 0);
+            if (e.key === "ArrowRight") move(1, 0);
+            if (e.key === "Escape") showMenu();
+        });
 
         loadHistory();
     </script>
