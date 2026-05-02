@@ -2,9 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retro Maze - Neon</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro Maze - Mobile</title>
     <style>
+        :root {
+            --neon-blue: #00ffff;
+            --neon-pink: #ff1493;
+            --neon-green: #39ff14;
+        }
+
         body {
             background-color: #0a0a0a;
             color: #f0f0f0;
@@ -12,83 +18,107 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
             margin: 0;
-            overflow: hidden;
+            padding: 0;
+            height: 100vh;
+            touch-action: manipulation; /* Evita zoom accidental */
         }
-        canvas {
-            border: 2px solid #00ffff;
-            box-shadow: 0 0 20px #00ffff;
-            display: none;
-            background: #000;
-        }
+
+        h1 { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); margin: 10px 0; }
+
         #menu, #victory {
             text-align: center;
             padding: 20px;
+            width: 90%;
         }
-        h1 { color: #ff1493; text-shadow: 0 0 10px #ff1493; font-size: 3rem; }
+
         .btn {
             background: transparent;
-            border: 1px solid #00ffff;
-            color: #00ffff;
-            padding: 15px 30px;
-            margin: 10px;
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 12px 20px;
+            margin: 8px;
             cursor: pointer;
             font-family: inherit;
-            font-size: 1.2rem;
-            transition: 0.3s;
-            display: inline-block;
+            font-weight: bold;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 250px;
         }
-        .btn:hover { 
-            background: #00ffff; 
-            color: #0a0a0a; 
-            box-shadow: 0 0 15px #00ffff;
+
+        canvas {
+            border: 2px solid var(--neon-blue);
+            max-width: 95vw;
+            max-height: 50vh;
+            display: none;
+            background: #000;
         }
-        #history { 
-            margin-top: 20px; 
-            color: #39ff14; 
-            font-size: 0.9em; 
-            line-height: 1.6;
+
+        /* Controles Táctiles */
+        #controls {
+            display: none;
+            grid-template-columns: repeat(3, 70px);
+            grid-template-rows: repeat(2, 70px);
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
         }
+
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            user-select: none;
+        }
+
+        .control-btn:active { background: var(--neon-blue); color: #000; }
+        .up { grid-column: 2; }
+        .left { grid-column: 1; grid-row: 2; }
+        .down { grid-column: 2; grid-row: 2; }
+        .right { grid-column: 3; grid-row: 2; }
+
+        #history { color: var(--neon-green); font-size: 0.8rem; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div id="menu">
         <h1>Retro Maze</h1>
-        <button class="btn" onclick="startGame(15)">1 - Fácil</button>
-        <button class="btn" onclick="startGame(25)">2 - Medio</button>
-        <button class="btn" onclick="startGame(35)">3 - Difícil</button>
-        <div id="history-container">
-            <h3>HISTORIAL</h3>
-            <div id="history"></div>
-        </div>
+        <button class="btn" onclick="startGame(13)">MODO FÁCIL</button>
+        <button class="btn" onclick="startGame(21)">MODO MEDIO</button>
+        <button class="btn" onclick="startGame(31)">MODO DIFÍCIL</button>
+        <div id="history"></div>
     </div>
 
     <div id="victory" style="display:none;">
-        <h1 style="color: #ff1493;">¡HAS GANADO!</h1>
-        <p id="final-time" style="color: #39ff14; font-size: 1.5rem;"></p>
-        <button class="btn" onclick="showMenu()">Volver al Menú</button>
+        <h1>¡VICTORIA!</h1>
+        <p id="final-time"></p>
+        <button class="btn" onclick="showMenu()">REINTENTAR</button>
     </div>
 
     <canvas id="gameCanvas" width="600" height="600"></canvas>
 
+    <div id="controls">
+        <div class="control-btn up" onclick="move(0, -1)">▲</div>
+        <div class="control-btn left" onclick="move(-1, 0)">◀</div>
+        <div class="control-btn down" onclick="move(0, 1)">▼</div>
+        <div class="control-btn right" onclick="move(1, 0)">▶</div>
+    </div>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const controls = document.getElementById('controls');
         
-        let maze = [];
-        let player = {x: 1, y: 1};
-        let goal = {x: 0, y: 0};
-        let startTime;
-        let gameActive = false;
-        let currentSize = 0;
-        let cellSize = 0;
-
-        const NEON_BLUE = "#00ffff";
-        const NEON_PINK = "#ff1493";
-        const NEON_GREEN = "#39ff14";
+        let maze = [], player = {x: 1, y: 1}, goal = {x: 0, y: 0};
+        let gameActive = false, currentSize, cellSize, startTime;
 
         function generateMaze(size) {
             let m = Array(size).fill().map(() => Array(size).fill(1));
@@ -97,14 +127,11 @@
                 for (let [dx, dy] of dirs) {
                     let nx = x + dx, ny = y + dy;
                     if (nx > 0 && nx < size && ny > 0 && ny < size && m[ny][nx] === 1) {
-                        m[ny][nx] = 0;
-                        m[y + dy/2][x + dx/2] = 0;
-                        carve(nx, ny);
+                        m[ny][nx] = 0; m[y + dy/2][x + dx/2] = 0; carve(nx, ny);
                     }
                 }
             }
-            m[1][1] = 0;
-            carve(1, 1);
+            m[1][1] = 0; carve(1, 1);
             return m;
         }
 
@@ -114,86 +141,71 @@
             maze = generateMaze(size);
             player = {x: 1, y: 1};
             goal = {x: size - 2, y: size - 2};
-            maze[goal.y][goal.x] = 0; // Asegurar salida
+            maze[goal.y][goal.x] = 0;
             
             document.getElementById('menu').style.display = 'none';
             document.getElementById('victory').style.display = 'none';
             canvas.style.display = 'block';
+            controls.style.display = 'grid';
             
             startTime = Date.now();
             gameActive = true;
-            requestAnimationFrame(draw);
+            draw();
         }
 
-        function draw() {
+        function move(dx, dy) {
             if (!gameActive) return;
-
-            ctx.fillStyle = "#0a0a0a";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            for (let y = 0; y < currentSize; y++) {
-                for (let x = 0; x < currentSize; x++) {
-                    if (maze[y][x] === 1) {
-                        ctx.strokeStyle = NEON_BLUE;
-                        ctx.lineWidth = 2;
-                        ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    }
-                }
-            }
-
-            // Meta
-            ctx.fillStyle = NEON_GREEN;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = NEON_GREEN;
-            ctx.fillRect(goal.x * cellSize + 4, goal.y * cellSize + 4, cellSize - 8, cellSize - 8);
-
-            // Jugador
-            ctx.fillStyle = NEON_PINK;
-            ctx.shadowColor = NEON_PINK;
-            ctx.fillRect(player.x * cellSize + 4, player.y * cellSize + 4, cellSize - 8, cellSize - 8);
-            
-            ctx.shadowBlur = 0;
-
-            // UI Tiempo
-            let seconds = Math.floor((Date.now() - startTime) / 1000);
-            ctx.fillStyle = NEON_GREEN;
-            ctx.font = "20px Consolas";
-            ctx.fillText(`Tiempo: ${seconds}s`, 15, canvas.height - 15);
-
-            requestAnimationFrame(draw);
-        }
-
-        window.addEventListener('keydown', e => {
-            if (!gameActive) return;
-            let nx = player.x, ny = player.y;
-            if (e.key === "ArrowUp") ny--;
-            if (e.key === "ArrowDown") ny++;
-            if (e.key === "ArrowLeft") nx--;
-            if (e.key === "ArrowRight") nx++;
-
+            let nx = player.x + dx;
+            let ny = player.y + dy;
             if (maze[ny] && maze[ny][nx] === 0) {
                 player.x = nx;
                 player.y = ny;
                 if (player.x === goal.x && player.y === goal.y) win();
             }
+        }
+
+        function draw() {
+            if (!gameActive) return;
+            ctx.fillStyle = "#0a0a0a";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = "#00ffff";
+            ctx.lineWidth = 2;
+            for (let y = 0; y < currentSize; y++) {
+                for (let x = 0; x < currentSize; x++) {
+                    if (maze[y][x] === 1) ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+
+            ctx.fillStyle = "#39ff14"; // Meta
+            ctx.fillRect(goal.x * cellSize + 2, goal.y * cellSize + 2, cellSize - 4, cellSize - 4);
+            ctx.fillStyle = "#ff1493"; // Jugador
+            ctx.fillRect(player.x * cellSize + 2, player.y * cellSize + 2, cellSize - 4, cellSize - 4);
+
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('keydown', e => {
+            if (e.key === "ArrowUp") move(0, -1);
+            if (e.key === "ArrowDown") move(0, 1);
+            if (e.key === "ArrowLeft") move(-1, 0);
+            if (e.key === "ArrowRight") move(1, 0);
         });
 
         function win() {
             gameActive = false;
-            let finalTime = Math.floor((Date.now() - startTime) / 1000);
-            saveRecord(finalTime);
-            
-            setTimeout(() => {
-                canvas.style.display = 'none';
-                document.getElementById('victory').style.display = 'block';
-                document.getElementById('final-time').innerText = `TIEMPO: ${finalTime} segundos`;
-            }, 300);
+            let time = Math.floor((Date.now() - startTime) / 1000);
+            canvas.style.display = 'none';
+            controls.style.display = 'none';
+            document.getElementById('victory').style.display = 'block';
+            document.getElementById('final-time').innerText = `TIEMPO: ${time}s`;
+            saveRecord(time);
         }
 
         function saveRecord(time) {
             let history = JSON.parse(localStorage.getItem('mazeHistory') || '[]');
             history.push({ date: new Date().toLocaleDateString(), time: time });
-            localStorage.setItem('mazeHistory', JSON.stringify(history));
+            localStorage.setItem('mazeHistory', JSON.stringify(history.slice(-5)));
         }
 
         function showMenu() {
@@ -204,8 +216,8 @@
 
         function loadHistory() {
             let history = JSON.parse(localStorage.getItem('mazeHistory') || '[]');
-            let html = history.slice(-5).reverse().map(r => `<div>${r.date} — ${r.time}s</div>`).join('');
-            document.getElementById('history').innerHTML = html || "Sin partidas registradas";
+            document.getElementById('history').innerHTML = "Últimos récords:<br>" + 
+                history.reverse().map(r => `${r.date}: ${r.time}s`).join('<br>');
         }
 
         loadHistory();
